@@ -12,35 +12,64 @@
 using dart::bin::DartUtils;
 using dart::bin::dfe;
 
-extern "C" {
+extern "C"
+{
 extern const uint8_t kDartVmSnapshotData[];
 extern const uint8_t kDartVmSnapshotInstructions[];
 }
 
-void run_test() {
-    Dart_SetVMFlags(0, nullptr);
+/// Dart VM Initialization Config
+typedef struct DartInitConfig
+{
+    int argc;
+    const char *argv;
+    Dart_InitializeParams params;
+} DartInitConfig;
 
-    dart::embedder::InitOnce(nullptr);
+int dart_embed_init(DartInitConfig config, int argc, const char **argv)
+{
+    Dart_SetVMFlags(argc, argv);
 
-    Dart_InitializeParams params = {0};
-    params.version = DART_INITIALIZE_PARAMS_CURRENT_VERSION;
-    params.vm_snapshot_data = kDartVmSnapshotData;
-    params.vm_snapshot_instructions = kDartVmSnapshotInstructions;
-    params.start_kernel_isolate = dfe.CanUseDartFrontend() && dfe.UseDartFrontend();
+    char *embedder_init_error = nullptr;
+    if (dart::embedder::InitOnce(&embedder_init_error) && embedder_init_error)
+    {
+        // Should we leave the error logging to the end user?
+        std::cerr << "dart::embedder::InitOnce failed: " << embedder_init_error << '\n';
+        return 1;
+    }
+
+    // Force default values
+    config.params.version = DART_INITIALIZE_PARAMS_CURRENT_VERSION;
+    config.params.vm_snapshot_data = kDartVmSnapshotData;
+    config.params.vm_snapshot_instructions = kDartVmSnapshotInstructions;
+    config.params.start_kernel_isolate = dfe.CanUseDartFrontend() && dfe.UseDartFrontend();
 
     dfe.Init();
     dfe.set_use_dfe();
     dfe.set_use_incremental_compiler(true);
 
-    char *init_error = Dart_Initialize(&params);
-    if (init_error) {
-        std::cout << init_error << '\n';
+    char *dart_init_error = Dart_Initialize(&config.params);
+    if (dart_init_error)
+    {
+        std::cerr << "Dart_Initialize failed: " << dart_init_error << '\n';
+        return 1;
     }
 
-    std::cout << "Dart VM version: " << Dart_VersionString() << '\n';
+    delete dart_init_error;
+    return 0;
+}
 
+void dart_embed_cleanup()
+{
     Dart_Cleanup();
     dart::embedder::Cleanup();
+}
 
-    // delete init_error;
+void run_test()
+{
+    DartInitConfig config = {0};
+
+    dart_embed_init(config, 0, nullptr);
+    std::cout << "Dart VM version: " << Dart_VersionString() << '\n';
+    dart_embed_cleanup();
 }
