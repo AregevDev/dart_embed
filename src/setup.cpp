@@ -7,6 +7,8 @@
 #include <bin/dfe.h>
 #include <bin/dartutils.h>
 
+#include <incbin/incbin.h>
+
 #include <iostream>
 
 using dart::bin::DartUtils;
@@ -16,6 +18,8 @@ extern "C"
 {
 extern const uint8_t kDartVmSnapshotData[];
 extern const uint8_t kDartVmSnapshotInstructions[];
+
+INCBIN(TestDart, "kernel/test.dart");
 }
 
 /// Dart VM Initialization Config
@@ -71,5 +75,8 @@ void run_test()
 
     dart_embed_init(config, 0, nullptr);
     std::cout << "Dart VM version: " << Dart_VersionString() << '\n';
+
+    std::cout << gTestDartData << '\n';
+
     dart_embed_cleanup();
 }
